@@ -1,0 +1,322 @@
+---
+title: "Final Project"
+author: "Alyssa Garcia"
+date: "`r Sys.Date()`"
+documentclass: article
+geometry: margin=1in
+fontsize: 11pt
+output:
+  pdf_document:
+    toc: false
+    df_print: kable
+    fig_caption: false
+    number_sections: false
+    dev: pdf
+    highlight: tango
+  html_document:
+    theme: default
+    self_contained: true
+    toc: false
+    df_print: kable
+    fig_caption: false
+    number_sections: false
+    smart: true
+    dev: svg
+---
+
+```{r setup, include = FALSE}
+# DO NOT ALTER THIS CHUNK
+# Set knitr options
+knitr::opts_chunk$set(
+  echo = TRUE,
+  eval = TRUE,
+  fig.width = 5,
+  fig.asp = 0.618,
+  out.width = "70%",
+  dpi = 120,
+  fig.align = "center",
+  cache = FALSE
+)
+# Load required packages
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(infer))
+suppressPackageStartupMessages(library(modelr))
+suppressPackageStartupMessages(library(broom))
+# Load dataset
+college <- read_rds("college.rds") %>%
+  type_convert(
+    na=combine("", "NA", "PrivacySuppressed")
+  )
+# Set seed
+set.seed(98261936)
+```
+
+## Question of Interest
+
+In recent years the number of females entering the technology field has been increasing, to explore this topic, we will be using the "College Scorecard" dataset, to determine whether there is a relationship between the percent of degrees award in Computer and Information Science and Support Services and percent of female students who completed within 4 years at an original institution, within Virginia? To examine our question, we will be using a linear model with the variables PCIP11, FEMALE_COMP_ORIG_YR4_RT, ST_FIPS, FEMALE, and INSTNM.
+
+
+## Preprocessing
+
+
+```{r}
+college_reduced <- college %>% 
+  select(PCIP11, FEMALE_COMP_ORIG_YR4_RT, ST_FIPS, FEMALE, INSTNM)
+```
+To select the columns being used within this projects, we used the select function and assigned the new dataset to "college_reduced". 
+  
+
+```{r}
+college_reduced_2 <- college_reduced %>%
+  filter(ST_FIPS == 51)
+```
+Since we are only interested at looking at colleges within Virginia, we used the filter function to only display Virginia colleges and assigned the dataset to "college_reduced_2". 
+  
+
+```{r}
+college_renamed <- college_reduced_2 %>% 
+  rename(
+    degree_percentage_computer = PCIP11,
+    female_completed_4yrs = FEMALE_COMP_ORIG_YR4_RT,
+    state_code = ST_FIPS, 
+    demographics_female = FEMALE,
+    school_name = INSTNM
+  )
+```
+The original column names are abbreviations, to make the them more readable we used the rename function and assigned the new dataset to "college_renamed"  
+
+
+## Visualization
+
+In order to visualize the covariation between our two variables, we have created a scatter plot using female_completed_4yrs and degree_percentage_computer. 
+```{r}
+college_renamed %>%
+  ggplot() +
+  geom_point(aes(x = female_completed_4yrs, y = degree_percentage_computer)) + 
+  labs(
+    title = "Scatter Plot Distribution for Two Variables",
+    x = "female_completed_4yrs",
+    y = "degree_percentage_computer"
+  )
+```
+There seems to be a weak correlation between the points on this scatter plot. I seems that there is almost no pattern between the variables. Another variable that might influence these patterns could be using a different number of years taken to complete their degree.  
+  
+    
+      
+  
+In order to visualize the variation between our two variables, we have created a histogram using female_completed_4yrs and degree_percentage_computer. 
+```{r, fig.asp = 1, fig.width = 30, out.width = "100%"}
+college_renamed %>% 
+  ggplot() +
+  geom_histogram(aes(x = female_completed_4yrs), bins = 10) + 
+  facet_wrap(~ school_name, scales = "free_x") +
+  labs(
+    title = "Histogram Distribution of Two Variables",
+    x = "female_completed_4yrs",
+    y = "degree_percentage_computer"
+  )
+```
+This histograms shown above mostly are mostly uniform with no outliers.  
+  
+     
+        
+          
+In order to visualize the covariation between our two variables, we have created a trend line using female_completed_4yrs and degree_percentage_computer.
+```{r}
+college_renamed %>%
+  ggplot() +
+  geom_smooth(aes(x = female_completed_4yrs, y = degree_percentage_computer)) +
+  labs(
+    title = "Trend Line Distribution",
+    x = "female_completed_4_yrs",
+    y = "degree_percentage_computer"
+  )
+```
+The trend line displays a negative pattern between our two variables, female_completed_4yrs and degree_percentage_computer. However, there is a slight increase towards the end of the trend line.
+
+## Summary Statistics
+
+```{r}
+college_statistics <- college_renamed %>%
+  na.omit
+```
+In order to display accurate summary statistics, we have opted to remove all missing values from our dataset, which we assigned to a new data frame "college_statistics".   
+   
+      
+         
+Now we want to look at the summary statistics of all our variables within our "college_statistics" dataframe. The first variable we will use is "degree_percentage_computer".
+```{r}
+college_statistics %>%
+  summarize(
+    count = n(),
+    mean = mean(degree_percentage_computer),
+    median = median(degree_percentage_computer),
+    std.dev = sd(degree_percentage_computer),
+    iqr = IQR(degree_percentage_computer)
+  )
+```
+   
+      
+         
+The second variable we be looking at is "demographics_female".
+```{r}
+college_statistics %>%
+  summarize(
+    count = n(),
+    mean = mean(demographics_female),
+    median = median(demographics_female),
+    std.dev = sd(demographics_female),
+    iqr = IQR(demographics_female)
+  )
+```
+   
+      
+         
+            
+The third variable we be looking at is "female_completed_4yrs".
+```{r}
+college_statistics %>%
+  summarize(
+    count = n(),
+    mean = mean(female_completed_4yrs),
+    median = median(female_completed_4yrs),
+    std.dev = sd(female_completed_4yrs),
+    iqr = IQR(female_completed_4yrs)
+  )
+```
+    
+       
+           
+              
+                 
+The fourth variable we be looking at is "state_code".Since this variable is categorical, we must use the group_by function to find the number of rows.
+```{r}
+college_statistics %>%
+  group_by(state_code) %>%
+  summarize(
+    count = n()
+    )
+```  
+    
+        
+           
+              
+                 
+                    
+The fifth variable we be looking at is "school_name".Since this variable is categorical, we must use the group_by function to find the number of rows. In addition to this, we also used the head() function to limit the number of rows we will see in the tibble below.
+```{r}
+college_statistics %>%
+  group_by(school_name) %>%
+  summarize(
+    count = n()) %>%
+  head()
+```
+
+
+## Data Analysis
+
+Now that we have finished our exploratory data analysis, we can create our linear regression model  using the lm() function.
+```{r}
+college_model <- lm(degree_percentage_computer ~ female_completed_4yrs, data = college_statistics)
+```
+   
+      
+         
+            
+To get the data frame to summarize the model's parameters, we will use the tidy() function.
+```{r}
+college_model %>%
+  tidy()
+```
+The values under the estimate column gives us the intercept and slope of our linear model.  
+   
+      
+         
+            
+  
+For additional information about our model, we can obtain the R^2 parameter using the glance() function and piping it into the select() function so that it will not overflow the margin of our knitted document.
+```{r}
+college_model %>%
+  glance() %>% 
+  select(r.squared)
+```   
+As we can see from our tibble, our R^2 is closer to 0, which means is its doing a poor job capturing the variability of the response variable.  
+   
+      
+         
+            
+               
+
+After building our model, we want to know what it predicts and how accurate the predictions are. To do this, we must use the add_predictions() and add_residuals() function to add the model predictions and residuals to the data frame "college_df". 
+```{r}
+college_df <- college_statistics %>%
+  add_predictions(college_model) %>%
+  add_residuals(college_model)
+```
+   
+      
+         
+            
+               
+                  
+                     
+Now that we have our residuals and predictions, we can start plotting these. The scatter plot below is our observed values vs. our predicted values.
+```{r}
+college_df %>%
+  ggplot() +
+  geom_point(mapping = aes(x = pred, y = degree_percentage_computer)) +
+  geom_abline(slope = -0.0361, intercept = 0) +
+  labs(
+    title = "Scatter Plot Distribution of degree_percentage_compute vs. pred",
+    x = "pred",
+    y = "degree_percentage_computer"
+  )
+```
+This scatter plot does not meet the first condition, linearity, as the response and explanatory variables barely fall along the line. The scatter plot also does not meet the second condition, nearly normal residuals, as the residuals are not normally distributed. The scatter plot does not meet the third condition, constant variation, as the residuals do not fall along the line at a constant rate.    
+    
+       
+          
+             
+               
+Now we can create a scatter plot of our residuals vs. predicted. 
+```{r}
+college_df %>%
+  ggplot() +
+  geom_point(mapping = aes(x = pred, y = resid)) +
+  geom_hline(yintercept = 0) +
+  labs(
+    title = "Scatter Plot Distribution of pred vs. resid",
+    x = "pred",
+    y = "resid"
+  )
+```
+This scatter plot does meet the first condition, linearity, as the response and explanatory variables fall slightly along the line. The scatter plot does not meet the second condition, nearly normal residuals, as the residuals are not normally distributed. The scatter plot doesn't meet the third condition, constant variation, as the residuals do not fall along the line at a constant rate.     
+   
+      
+         
+            
+Now we can creat our Q-Q plot.
+```{r}
+college_df %>%
+  ggplot() +
+  geom_qq(aes(sample = resid)) +
+  geom_qq_line(aes(sample = resid)) +
+  labs (
+    title = "Q-Q Distribution",
+    x = "sample_resid",
+    y = "resid"
+  )
+```
+
+This Q-Q plot does not meet the first condition, linearity, as the response and explanatory variables is curved and does not fall along the line. The Q-Q plot does not meet the second condition, nearly normal residuals, as the residuals are not normally distributed. The Q-Q plot doesn't meet the third condition, constant variation, as the residuals do not fall along the line at a constant rate. 
+
+
+
+## Conclusion
+
+By reviewing all sections from our analysis, we can draw that there is no linearity, normal residuals, and constant variation between the variables "female_completed_4yrs" and "degree_percentage_computer". We can also see from our r.squared that our model was doing a poor job at capturing the variability in our response variable. 
+
+Thus, we can conclude that there is a weak to little relationship between our variables "female_completed_4yrs" and "degree_percentage_computer". This could mean that there is a small number of females within Virginia colleges that are receiving a computer degree within four years. However, there could be confounding variables, like the new average degree completion takes 5 years, that we did not look at within our model.
+
+
+
